@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: adventureclub_postgres
+    environment:
+      POSTGRES_DB: AdventureClub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - adventureclub_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api:
+    build:
+      context: ./backend/AdventureClub.API
+      dockerfile: Dockerfile
+    container_name: adventureclub_api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Docker
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=AdventureClub;Username=postgres;Password=postgres123
+    ports:
+      - "5000:80"
+      - "5001:443"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - adventureclub_network
+    volumes:
+      - ./backend/AdventureClub.API:/app
+    working_dir: /app
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: adventureclub_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@adventureclub.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    networks:
+      - adventureclub_network
+
+volumes:
+  postgres_data:
+
+networks:
+  adventureclub_network:
+    driver: bridge
